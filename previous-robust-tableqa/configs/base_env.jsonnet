@@ -37,9 +37,9 @@ local default_cache_folder = 'cache';
   "WANDB": {
     "CACHE_DIR":  wandb_cache_dir,
     "DIR": wandb_dir,
-    "entity": "",
+    "entity": "eunji55116-pukyong-national-university",
     "project": "TableQA_publication",
-    "tags": [],
+    "tags": ["DPR_InnerTableRetrieval_wikisql_with_in_batch_neg_sampling_mixed"],
   },
   "platform_type": "pytorch",
   "ignore_pretrained_weights": [],
@@ -142,3 +142,4 @@ local default_cache_folder = 'cache';
     },
   }
 }
+

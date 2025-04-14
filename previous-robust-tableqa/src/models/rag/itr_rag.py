@@ -415,6 +415,7 @@ class ITRRagModel(pl.LightningModule):
         
         batch_size = len(input_text_sequences)
 
+        # overflow_only : 오버플로우 일때만 sub-table을 사용할 것이다 
         overflow_only = ('overflow_only' in self.config.model_config.modules)
         original_sub_table_order = ('original_sub_table_order' in self.config.model_config.modules)
 
@@ -472,27 +473,55 @@ class ITRRagModel(pl.LightningModule):
                 )
                 attention_masks = encoding.attention_mask
 
+                # attention_masks가 1이다 : 패딩 빼고 실제로 입력으로 쓰는 토큰들 
+                # nonzero : 불리언에서 True의 좌표! → 실제로 입력으로 쓰이는 토큰의 좌표
+                # 넘파이 리스트형태로 바꿔주면
+                # max_ts[i][0] : i번째 서브테이블
+                # max_ts[i][1] : 실제 토큰의 위치 
+                # 따라서 마지막 실제 토큰의 위치 = 그 서브테이블의 실제토큰의 길이
                 max_ts = (attention_masks == 1).nonzero().numpy().tolist()
                 token_lengths = defaultdict(int)
+
+                # original_table_overflow : 실제로 원래 테이블이 길이를 초과했는가?
+                # for pos in max_ts이므로 
+                # max_is[i][0]의 형태였던게 [0,0], [0,1] 하나씩 들어가니까 
+                # pos[0] : i번째 서브테이블
+                # pos[1] : 실제 토큰의 위치
+                # token_lengths[pos[0]]은 가만히 있고 pos[1] : 실제 토큰 위치가 계속 업데이트 되면서 
+                # 결국 마지막 값만 남음 
+                # token_lengths[0] = 3
+                # [3,5,10] : 이렇게 문장 길이만 남게됨 
                 original_table_overflow = False
                 for pos in max_ts:
                     token_lengths[pos[0]] = pos[1]
+                    # 근데 이건 굳이 매번 실행될 필요는 없지 않나?
                     if pos[1] > self.config.data_loader.additional.max_decoder_source_length:
                         original_table_overflow = True
-                
 
                 # set input_length for subtables
+                # 동일한 index를 사용해서 sub_table dict에 값을 넣어줌 
                 for index, sub_table in enumerate(processed_sub_tables):
                     sub_table['input_length'] = token_lengths[index]
                     # this is for later evaluation
                     sub_table['original_table_overflow'] = original_table_overflow
 
+                # case 1: 오버플로우 일 때만 서브테이블 사용할 건데, 원본이 오버플로우 테이블 아닐 때
+                # 그냥 전체 테이블 넣고 쓰면 됨 
+                # processed_sub_tables = [sub_table0, sub_table1, sub_table2]
+                # 이건 한 질문에 대한 서브테이블만 담겨있음 
+                # 예시로 token_lengths = {0: 240, 1: 360, 2: 128}
+                # 이걸 리스트로 바꿔서 token_lengths = [(0, 240), (1, 360), (2, 128)]
+                # 오버플로우가 안되어 잇어도 n_docs만큼의 sub-tables 개수가 필요해서 
+                # 마지막 sub-table을 n_docs만큼 반복해서 넣어줌
                 if overflow_only and not original_table_overflow:
                     # if the original table does not overflow
                     # and we only trim tables for overflow samples
                     # we put the whole table in the input and get predictions
                     token_lengths = [(i, token_lengths[i]) for i in range(len(processed_sub_tables))]
                     token_lengths = [token_lengths[-1]]*n_docs
+                # case 2: 오버플로우 일 때만 서브테이블 사용할 건데, 원본이 오버플로우 테이블일 때
+                # (i번째 서브테이블, i번째 서브테이블 길이) 형태로 바꿔줌
+                # 나중에 n_docs만큼 반복해서 넣어줄 때 사용됨
                 else:
                     # if the original table overflows
                     token_lengths = [(i, token_lengths[i]) for i in range(len(processed_sub_tables))]
@@ -550,6 +579,8 @@ class ITRRagModel(pl.LightningModule):
         targets = labels
         # We use tapex tokenizer here, so we need to input table
         
+        # 쿼리랑 테이블을 넣고 토큰화 시키는 과정 
+        # 토큰화 된 길이를 구할 수 있겠지 
         encoding = self.generator_tokenizer(
             query=[text_table_tuple[0] for text_table_tuple in extended_input_text_sequences],
             table=[
