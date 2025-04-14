@@ -3,13 +3,20 @@ import os
 import argparse
 import random
 
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from datasets import load_from_disk
 
 def question_type_classifier(text):
     """
     모델 불러오기 
     """
+    model_name = "EUNJI0P/bert-query-type-cls-model"
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+
     return random.choice([0, 1])
+
 
 def build_label_map(dataset):
     """
@@ -88,6 +95,7 @@ if __name__ == "__main__":
         default="label_maps.json",
         help="Output JSON file path for the label maps."
     )
+    
     args = parser.parse_args()
     main(args)
 
