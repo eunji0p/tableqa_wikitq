@@ -1,21 +1,36 @@
 import json
 import os
 import argparse
-import random
+import torch
 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from datasets import load_from_disk
 
 def question_type_classifier(text):
     """
-    모델 불러오기 
+    모델 불러오기 및 입력 텍스트 분류 예측 수행
     """
     model_name = "EUNJI0P/bert-query-type-cls-model"
-
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    model.eval()  # 평가 모드
 
-    return random.choice([0, 1])
+    # 입력 텍스트 토큰화: 모델 입력 형식에 맞게 변환 ([CLS] text [SEP])
+    encoding = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
+
+    # GPU 사용 여부에 따라 device 설정
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    encoding = {k: v.to(device) for k, v in encoding.items()}
+
+    # 모델 추론 (with torch.no_grad()로 기울기 계산 방지)
+    with torch.no_grad():
+        outputs = model(**encoding)
+    logits = outputs.logits
+
+    # logits의 argmax를 취해 예측된 label (0 또는 1)을 반환
+    predicted_label = logits.argmax(dim=-1).item()
+    return predicted_label
 
 
 def build_label_map(dataset):
@@ -47,6 +62,7 @@ def build_label_map(dataset):
         # 분류 (더미)
         label = question_type_classifier(text_input)
         label_map[question_id] = label
+
     return label_map
 
 def main(args):
@@ -80,7 +96,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--validation",
         type=str,
-        required=True,
+        required=True, # 반드시 입력 받아야 함 
         help="Path to the validation arrow file (e.g., /path/to/validation.arrow)"
     )
     parser.add_argument(
@@ -95,7 +111,7 @@ if __name__ == "__main__":
         default="label_maps.json",
         help="Output JSON file path for the label maps."
     )
-    
+
     args = parser.parse_args()
     main(args)
 
