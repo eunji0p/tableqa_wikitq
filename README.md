@@ -9,7 +9,17 @@ pyenv activate tableqa
 
 ## Main Experiments 
 
+
+```    
+    tableqa_wikitq/
+                │
+                ├── previous-robust-tableqa                  # 깃 클론한 원본 파일들
+                ├── robust-tableqa                           # 실험에 맞게 수정 예정된 폴더
+```
+
 ### ITR mix (intersecting columns and rows)
+
+
 
 WikiSQL train
 ```
