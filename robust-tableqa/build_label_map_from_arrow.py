@@ -29,8 +29,8 @@ def build_label_map(dataset, tokenizer, model, device):
     """
     dataset: HuggingFace의 Arrow dataset (load_from_disk로 불러온)
     
-    1. 각 예제에 대해 'question'과 'header' 정보를 결합하여 입력 text를 구성
-    2. question_type_classifier 사용해 label을 예측합니다.
+    1. 각 예제에 대해 'question'과 'header' 추출
+    2. question_type_classifier 사용해 label을 예측
     3. 최종적으로 question_id를 key, 예측된 label (0 또는 1)을 value로 하는 label_map dict를 반환
     """
     # 결과 저장할 딕셔너리
@@ -50,7 +50,7 @@ def build_label_map(dataset, tokenizer, model, device):
         
         # 분류 (더미)
         label = question_type_classifier(question_text, header_str, tokenizer, model, device)
-        label_map[question_id] = label
+        label_map[question_id] = {"query_type": label}
 
     return label_map
 
@@ -63,11 +63,10 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-
     splits_label_map = {}
 
-    for split in ["train", "validation", "test"]:
-        file_path = os.path.join(args.data_dir, f"preprocessed_split_table_by_mixed_combination_{split}")
+    for split in ["test"]:
+        file_path = os.path.join(args.data_dir, f"preprocessed_split_table_by_mixed_combination_{split}.arrow")
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"{split} 파일({file_path})을 찾을 수 없습니다.")
         print(f"Loading {split} dataset from {file_path}...")
