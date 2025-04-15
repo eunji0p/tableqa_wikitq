@@ -10,7 +10,7 @@ def question_type_classifier(query, header, tokenizer, model, device):
     """
     모델 불러오기 및 입력 텍스트 분류 예측 수행
     """
-    # 입력 텍스트 토큰화: 모델 입력 형식에 맞게 변환 ([CLS] text [SEP])
+    # 입력 텍스트 토큰화: 모델 입력 형식에 맞게 query와 header를 토큰화
     encoding = tokenizer(query, header, return_tensors="pt", truncation=True, padding=True)
     encoding = {k: v.to(device) for k, v in encoding.items()}
 
@@ -32,6 +32,7 @@ def build_label_map(dataset, tokenizer, model, device):
     1. 각 예제에 대해 'question'과 'header' 추출
     2. question_type_classifier 사용해 label을 예측
     3. 최종적으로 question_id를 key, 예측된 label (0 또는 1)을 value로 하는 label_map dict를 반환
+    test: {'nu-0': {'query_type': 0}...}
     """
     # 결과 저장할 딕셔너리
     label_map = {}
@@ -47,8 +48,7 @@ def build_label_map(dataset, tokenizer, model, device):
             header_str = " * ".join(str(h) for h in header)
         else:
             header_str = str(header)
-        
-        # 분류 (더미)
+
         label = question_type_classifier(question_text, header_str, tokenizer, model, device)
         label_map[question_id] = {"query_type": label}
 
@@ -56,10 +56,11 @@ def build_label_map(dataset, tokenizer, model, device):
 
 def main(args):
 
+    # 허깅페이스에서 모델 불러오기
     model_name = "EUNJI0P/bert-query-type-cls-model"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name)
-    model.eval()  # 평가 모드
+    model.eval() 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
