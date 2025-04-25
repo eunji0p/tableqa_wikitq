@@ -571,6 +571,7 @@ class ITRRagReduceMixModel(ITRRagModel):
     '''
     Class for Inner Table Retrieval RAG model (reduction version) Row-Wise
     '''
+    # ITRRagModel 상속받음
     def __init__(self, config: EasyDict, data_loader) -> None:
         ITRRagModel.__init__(self, config, data_loader)
 
@@ -676,7 +677,9 @@ class ITRRagReduceMixModel(ITRRagModel):
         # prepare sub tables here
         # e.g. concatenate subtables, postprocessing retrieval results...
 
+        # 유사도 기반으로 valid한 서브테이블 생성성
         def reduce_table(original_table, ranked_sub_tables):
+            # from_records → 리스트 형태를 데이터프레임으로 변환
             table_pd = pd.DataFrame.from_records(original_table['rows'], columns=original_table['header'])
             current_row_indices = []
             current_column_indices = []
@@ -706,6 +709,7 @@ class ITRRagReduceMixModel(ITRRagModel):
                     processed_sub_table['sub_row_indice'] = sorted(processed_sub_table['sub_row_indice'])
                     processed_sub_table['sub_column_indice'] = sorted(processed_sub_table['sub_column_indice'])
 
+                # test일 땐 실행 안됨 
                 if shuffle_sub_table_order_in_training and is_training:
                     random.shuffle(processed_sub_table['sub_row_indice'])
                     random.shuffle(processed_sub_table['sub_column_indice'])
@@ -774,6 +778,7 @@ class ITRRagReduceMixModel(ITRRagModel):
                 )
                 return encoding
             
+            # 1024 길이 초과하는지 확인 
             def binary_search(start, end, verbose=False):
                 if start >= end:
                     if verbose:
@@ -814,10 +819,13 @@ class ITRRagReduceMixModel(ITRRagModel):
                 sep_index = len(processed_sub_tables) - 1
             
             token_lengths = defaultdict(int)
+            # 원래 테이블이 overflow하는지 
             original_table_overflow = False
             for i in range(len(processed_sub_tables)):
+                # 0 이면 사용한다는 뜻 
                 if i <= sep_index:
                     token_lengths[i] = 0  
+                # 1024+1 = 1025면 그 인덱스부터 사용하지 않겠다는 뜻이다 
                 else:
                     token_lengths[i] = self.config.data_loader.additional.max_decoder_source_length+1
                     original_table_overflow = True
@@ -844,6 +852,7 @@ class ITRRagReduceMixModel(ITRRagModel):
                 3. [(1 1 1 0 0) 0 0 0 0 0]
                 4. [(0 0)] / [(1 1) 0] --> need to pad
                 """
+                # 1. 테이블 길이 초과 하지 않고, ITR 안 쓰게 되어 있다면 
                 if (overflow_only and not original_table_overflow) or suppress_ITR:
                     # if the original table does not overflow
                     # and we only reduce tables for overflow samples
@@ -853,6 +862,7 @@ class ITRRagReduceMixModel(ITRRagModel):
                         # in random reduce, all sub-tables are available
                         token_lengths_reduced = [token_lengths[i] for i in range(n_docs)]
                 
+                # 2. 길이 제한 안 넘는 서브테이블만 고른다 
                 else:
                     token_lengths_reduced = [(i, length) for i, length in token_lengths if length <= self.config.data_loader.additional.max_decoder_source_length]
 
@@ -907,7 +917,7 @@ class ITRRagReduceMixModel(ITRRagModel):
             else:
                 token_lengths_reduced = token_lengths_reduced[-n_docs:]
             
-            # print('gold_column_list', gold_column_list)
+            print('gold_column_list', gold_column_list)
             extended_input_text_sequences += [input_text_and_sub_tables[i] for i, _ in token_lengths_reduced]
             input_sub_tables.append([input_text_and_sub_tables[i][1] for i, _ in token_lengths_reduced])
         # only train with the most rich item

@@ -178,14 +178,17 @@ class ITRRagModel(pl.LightningModule):
             all_shard_files = glob.glob(f"{split_index_file_path}/static_index_*.pkl")
             for file_path in all_shard_files:
                 logger.info(f'Loading index file {file_path}')
+                # test 파일 실행
                 with open(file_path, 'rb') as f:
                     index_data = pickle.load(f)
                 item_embeddings=index_data['item_embeddings']
                 question_ids=index_data['question_ids']
                 sub_tables=index_data['sub_tables']
+                # {'question_id':(0,15)}
                 question_id_to_sub_table_index=index_data['question_id_to_sub_table_index']
-                
+                # {'question_id':0}
                 question_id_to_query_index=index_data['question_id_to_query_index']
+                # query_embeddding : [4344, 768]
                 query_embeddings=index_data['query_embeddings']
                 
                 # Load all sub_table and corresponding embeddings into dict
