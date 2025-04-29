@@ -32,7 +32,7 @@ def build_label_map(dataset, tokenizer, model, device):
     1. 각 예제에 대해 'question'과 'header' 추출
     2. question_type_classifier 사용해 label을 예측
     3. 최종적으로 question_id를 key, 예측된 label (0 또는 1)을 value로 하는 label_map dict를 반환
-    test: {'nu-0': {'query_type': 0}...}
+    test: {'which country had the most cyclists finish within the top 10?': {'query_type': 0}...}
     """
     # 결과 저장할 딕셔너리
     label_map = {}
@@ -50,7 +50,7 @@ def build_label_map(dataset, tokenizer, model, device):
             header_str = str(header)
 
         label = question_type_classifier(question_text, header_str, tokenizer, model, device)
-        label_map[question_id] = {"query_type": label}
+        label_map[question_text] = {"query_type": label}
 
     return label_map
 
@@ -59,21 +59,26 @@ def main(args):
     # 허깅페이스에서 모델 불러오기
     model_name = "EUNJI0P/bert-query-type-cls-model"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name,
+                                                               trust_remote_code=True,
+                                                                 use_safetensors=True)
     model.eval() 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     splits_label_map = {}
 
-    for split in ["test"]:
+    for split in ["validation", "test"]:
         file_path = os.path.join(args.data_dir, f"preprocessed_split_table_by_mixed_combination_{split}.arrow")
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"{split} 파일({file_path})을 찾을 수 없습니다.")
         print(f"Loading {split} dataset from {file_path}...")
         ds = load_from_disk(file_path)
         print(f"Loaded {split} dataset with {len(ds)} examples.")
-        splits_label_map[split] = build_label_map(ds, tokenizer, model, device) 
+        # splits_label_map[split] = build_label_map(ds, tokenizer, model, device) 
+
+        label_map = build_label_map(ds, tokenizer, model, device)
+        splits_label_map.update(label_map)
     
     # 최종적으로 모든 split의 label_map을 JSON으로 저장
     with open(args.out_file, 'w', encoding='utf-8') as f:
@@ -101,7 +106,7 @@ if __name__ == "__main__":
     main(args)
 
 """
-python build_label_map.py \
+python build_label_map_from_arrow.py \
   --data_dir /home/eunji/workspace/kim-internship/Eunji/Data/TableQA_data/wtq \
-  --out_file /home/eunji/workspace/kim-internship/Eunji/Data/wtq_label_maps.json
+  --out_file /home/eunji/workspace/New_Eunji/wtq_label_maps.json
 """

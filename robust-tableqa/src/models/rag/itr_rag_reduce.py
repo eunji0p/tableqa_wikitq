@@ -2,6 +2,7 @@
 
 # SPDX-License-Identifier: CC-BY-NC-4.0
 
+import json
 import copy
 import math
 import os
@@ -94,12 +95,14 @@ class ITRRagReduceModel(ITRRagModel):
         mask = torch.ones(batch_size, n_docs).to(self.device)
         input_sub_tables = []
         for index, question_id, input_text_sequence, gold_column_list, ranked_sub_tables, table in zip(range(batch_size), question_ids, input_text_sequences, gold_columns, retrieved_sub_tables, tables):
+            
             # concatenate the retrieved column with previous subtables
             processed_sub_tables = reduce_table(table, ranked_sub_tables)
             
             # we set the minimum #col to be 2 here
             if len(processed_sub_tables) > 1:
                 processed_sub_tables = processed_sub_tables[1:]
+
             
             # batch input_text_sequence with each of the retrieved sub_tables
             input_text_and_sub_tables = [(input_text_sequence, sub_table) for sub_table in processed_sub_tables]
@@ -754,9 +757,25 @@ class ITRRagReduceMixModel(ITRRagModel):
                 processed_sub_tables.append(processed_sub_table)
             return processed_sub_tables
 
+        
+        file_path = "/home/eunji/workspace/New_Eunji/wtq_label_maps.json"
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            label_map = json.load(f)
+
+        # print(f'n_docs :{n_docs}')
+
         mask = torch.ones(batch_size, n_docs).to(self.device)
         input_sub_tables = []
         for index, question_id, input_text_sequence, gold_column_list, gold_row_list, ranked_sub_tables, table in zip(range(batch_size), question_ids, input_text_sequences, gold_columns, gold_rows, retrieved_sub_tables, tables):
+
+            query_type = label_map[input_text_sequence]["query_type"]
+
+            if query_type is None:
+                print(f"Warning: input_text_sequence not found in label_map: {input_text_sequence}")
+            else:
+                # print(f'query_type: {query_type}, input_text_sequence: {input_text_sequence}')
+                pass
 
             max_decoder_source_length = self.config.data_loader.additional.max_decoder_source_length
             # concatenate the retrieved column with previous subtables
@@ -834,6 +853,8 @@ class ITRRagReduceMixModel(ITRRagModel):
             # batch input_text_sequence with each of the retrieved sub_tables
             input_text_and_sub_tables = [(input_text_sequence, sub_table) for sub_table in processed_sub_tables]
             
+            # print(f'question_id : {question_id} : {input_text_sequence}')
+
             # set input_length for subtables
             for index, sub_table in enumerate(processed_sub_tables):
                 sub_table['input_length'] = token_lengths[index]
@@ -857,13 +878,22 @@ class ITRRagReduceMixModel(ITRRagModel):
                     # if the original table does not overflow
                     # and we only reduce tables for overflow samples
                     # we put the whole table in the input and get predictions
+                    # n_docs개 채우고 나감
                     token_lengths_reduced = [token_lengths[-1]]*n_docs
                     if random_reduce:
                         # in random reduce, all sub-tables are available
                         token_lengths_reduced = [token_lengths[i] for i in range(n_docs)]
                 
+                
                 # 2. 길이 제한 안 넘는 서브테이블만 고른다 
                 else:
+                    
+                    if query_type == 0 :
+                        sub_n_docs = int(n_docs/2)
+                    else :
+                        sub_n_docs = n_docs
+
+                    # print(f'sub_n_docs:{sub_n_docs}')
                     token_lengths_reduced = [(i, length) for i, length in token_lengths if length <= self.config.data_loader.additional.max_decoder_source_length]
 
                     if len(token_lengths_reduced) == 0:
@@ -871,13 +901,29 @@ class ITRRagReduceMixModel(ITRRagModel):
                         logger.warning(f"question {question_id} table {table['id']} can not fit!")
                         # keep the original table
                         token_lengths_reduced = token_lengths
-                    elif len(token_lengths_reduced) < n_docs and len(token_lengths_reduced) > 0:
+                    elif len(token_lengths_reduced) < sub_n_docs  and len(token_lengths_reduced) > 0:
                         # Case 3
-                        token_lengths_reduced = token_lengths[:min(n_docs, len(token_lengths))]
+                        token_lengths_reduced = token_lengths[:min(sub_n_docs , len(token_lengths))]
                     else:
                         # Case 1
-                        token_lengths_reduced = token_lengths_reduced[-n_docs:]
+                        token_lengths_reduced = token_lengths_reduced[-sub_n_docs :]
                 
+                # else:
+                #     token_lengths_reduced = [(i, length) for i, length in token_lengths if length <= self.config.data_loader.additional.max_decoder_source_length]
+
+                #     # print('after reduction:', token_lengths_reduced)
+                #     if len(token_lengths_reduced) == 0:
+                #         # Case 2: if it does not even fit one table
+                #         logger.warning(f"question {question_id} table {table['id']} can not fit!")
+                #         # keep the original table
+                #         token_lengths_reduced = token_lengths
+                #     elif len(token_lengths_reduced) < n_docs and len(token_lengths_reduced) > 0:
+                #         # Case 3
+                #         token_lengths_reduced = token_lengths[:min(n_docs, len(token_lengths))]
+                #     else:
+                #         # Case 1
+                #         token_lengths_reduced = token_lengths_reduced[-n_docs:]
+                    
                 
             else:
                 # in training, just make sure the last element has all gold columns
@@ -915,9 +961,13 @@ class ITRRagReduceMixModel(ITRRagModel):
                 # repeat the first table
                 token_lengths_reduced = [token_lengths_reduced[0]]*(n_docs - len(token_lengths_reduced)) + token_lengths_reduced
             else:
+                # 확실히 10개 만들기 
+                # 혹시나 random_reduce로 인해 길이가 더 길어질 수 있으니
                 token_lengths_reduced = token_lengths_reduced[-n_docs:]
             
-            print('gold_column_list', gold_column_list)
+            
+            # print(f'token_lengths_reduced:', token_lengths_reduced)
+            # print('gold_column_list', gold_column_list)
             extended_input_text_sequences += [input_text_and_sub_tables[i] for i, _ in token_lengths_reduced]
             input_sub_tables.append([input_text_and_sub_tables[i][1] for i, _ in token_lengths_reduced])
         # only train with the most rich item
