@@ -680,7 +680,7 @@ class ITRRagReduceMixModel(ITRRagModel):
         # prepare sub tables here
         # e.g. concatenate subtables, postprocessing retrieval results...
 
-        # 유사도 기반으로 valid한 서브테이블 생성성
+        # 유사도 기반으로 valid한 서브테이블 생성
         def reduce_table(original_table, ranked_sub_tables):
             # from_records → 리스트 형태를 데이터프레임으로 변환
             table_pd = pd.DataFrame.from_records(original_table['rows'], columns=original_table['header'])
@@ -757,9 +757,11 @@ class ITRRagReduceMixModel(ITRRagModel):
                 processed_sub_tables.append(processed_sub_table)
             return processed_sub_tables
 
-        
-        file_path = "/home/eunji/workspace/New_Eunji/wtq_label_maps.json"
-
+        # print("MODEL_CONFIG KEYS:", self.config.model_config.keys())
+        label_map = self.config.model_config.label_map_path
+        file_path = label_map.label_map_file_path
+        # print(f'file_path:{file_path}')
+              
         with open(file_path, "r", encoding="utf-8") as f:
             label_map = json.load(f)
 
@@ -889,7 +891,7 @@ class ITRRagReduceMixModel(ITRRagModel):
                 else:
                     
                     if query_type == 0 :
-                        sub_n_docs = int(n_docs/2)
+                        sub_n_docs = n_docs - 5
                     else :
                         sub_n_docs = n_docs
 
