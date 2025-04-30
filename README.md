@@ -32,19 +32,9 @@ pyenv activate tableqa
 
 ```
 
-☑️ 아래부분 서버에 있는 파일 절대경로로 수정이 필요합니다!
+☑️ 아래부분 서버에 있는 파일 경로로 수정이 필요합니다!
 
 ```
-
-local index_files = {
-  "index_paths": {
-    "train": "DPR_InnerTableRetrieval_wikisql_with_in_batch_neg_sampling_mixed/test/wtq_original_sets/step_7603/test.ITRWikiTQDataset.train",
-    "validation": "DPR_InnerTableRetrieval_wikisql_with_in_batch_neg_sampling_mixed/test/wtq_original_sets/step_7603/test.ITRWikiTQDataset.validation",
-    "test": "DPR_InnerTableRetrieval_wikisql_with_in_batch_neg_sampling_mixed/test/wtq_original_sets/step_7603/test.ITRWikiTQDataset.test",
-  },
-};
-
-
 // json 파일 주소
 local label_map_path = {
   "label_map_file_path" : "/home/eunji/workspace/New_Eunji/wtq_label_maps.json",
