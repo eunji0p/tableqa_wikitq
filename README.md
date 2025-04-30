@@ -15,7 +15,7 @@ pyenv activate tableqa
                 │
                 ├── previous-robust-tableqa                  # 깃 클론한 원본 파일들
                 ├── robust-tableqa                           # 실험에 맞게 수정 예정된 폴더
-                ├── wtq_label_maps.json                      # 데이터셋 질문 유형 분류된 json 파일
+                ├── wtq_label_maps.json                      # 데이터셋 질문 유형 분류된 json 파일 (추가 되었습니다.)
 ```
 
 ## 📁 robust-tableqa 폴더
