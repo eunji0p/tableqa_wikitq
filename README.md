@@ -44,7 +44,7 @@ local label_map_path = {
 
 * 최종 실행 코드 
 
-☑️ 디바이스 수 설정 필요합니다!
+☑️ 디바이스 수(8개) 확인이 필요합니다!
 
 ```
 python src/main.py configs/wtq/tapex_ITR_mix_wtq.jsonnet --accelerator gpu --devices 8 --strategy ddp --num_sanity_val_steps 0 --experiment_name evaluate_ominitab_on_WTQ_15 --mode test --modules overflow_only original_sub_table_order --test_evaluation_name original_sets --opts test.batch_size=2 test.load_epoch=0 model_config.GeneratorModelVersion=neulab/omnitab-large-finetuned-wtq model_config.DecoderTokenizerModelVersion=neulab/omnitab-large-finetuned-wtq model_config.ModelClass=ITRRagReduceMixModel data_loader.additional.num_knowledge_passages=15
